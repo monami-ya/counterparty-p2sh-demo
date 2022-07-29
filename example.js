@@ -1,8 +1,11 @@
 var bitcoin = require('bitcoinjs-lib');
 var counterparty = require('./lib');
 var Q = require('q');
+var coininfo = require('coininfo');
+var NETWORK = coininfo('MONACOIN-TEST').toBitcoinJS();
+NETWORK.messagePrefix = '';
+NETWORK.dustThreshold = 0;
 
-var NETWORK = bitcoin.networks.testnet;
 var OP_INT_BASE = 80;
 
 // create backend RPC
@@ -15,10 +18,10 @@ var backend = new counterparty.backends.counterpartyserver.Backend("http://" + c
 var bitcoindHost = "" || process.env['BITCOIN_RPC_HOST'];
 var bitcoindUser = "" || process.env['BITCOIN_RPC_USER'];
 var bitcoindPass = "" || process.env['BITCOIN_RPC_PASSWORD'];
-var bitcoindRPC = new (counterparty.rpc.createRpcClient())("http://" + bitcoindUser + ":" + bitcoindPass + "@" + bitcoindHost + ":18332", {errPrefix: 'Bitcoin '});
+var bitcoindRPC = new (counterparty.rpc.createRpcClient())("http://" + bitcoindUser + ":" + bitcoindPass + "@" + bitcoindHost + ":19402", {errPrefix: 'Bitcoin '});
 
 // init mnemonic
-var m = new counterparty.Mnemonic((process.env['XCP_P2SH_MNEMONIC'] || "skin pressure serve only really joke cap okay twenty children alone sanity").split(" "));
+var m = new counterparty.Mnemonic((process.env['XMP_P2SH_MNEMONIC'] || "skin pressure serve only really joke cap okay twenty children alone sanity").split(" "));
 var seed = m.toHex();
 
 // derive masterkey
@@ -79,7 +82,7 @@ for (var k in DEFAULT_OPTIONS) {
 }
 
 var pollForBlock = function(currentHeight) {
-    return bitcoindRPC.call('getinfo').then(function(result) {
+    return bitcoindRPC.call('getblockchaininfo').then(function(result) {
         var height = result.result.blocks;
 
         if (!currentHeight) {
@@ -100,7 +103,7 @@ var balances = function(addresses) {
         .then(function(balances) {
             return balances
                 .filter(function(record) {
-                    return record.asset == 'XCP';
+                    return record.asset == 'XMP';
                 })
                 .map(function(record) {
                     return record.address + ": " + record.quantity + " " + record.asset;
@@ -110,7 +113,7 @@ var balances = function(addresses) {
     ;
 }
 
-bitcoindRPC.call('getinfo')
+bitcoindRPC.call('getblockchaininfo')
     .then(function(result) {
         console.log('block height; ', result.result.blocks);
     })
@@ -123,14 +126,14 @@ bitcoindRPC.call('getinfo')
                         console.log(balances);
                     });
 
-            // send some BTC to the P2SH address (for paying fees)
-            case 'send-btc-to-p2sh':
+            // send some MONA to the P2SH address (for paying fees)
+            case 'send-mona-to-p2sh':
                 return balances([address1, address2, p2shAddress])
                     .then(function(balances) {
                         console.log(balances);
                     })
                     .then(function() {
-                        return backend.create_send(address1, p2shAddress, 'BTC', 0.05 * 1e8, DEFAULT_OPTIONS)
+                        return backend.create_send(address1, p2shAddress, 'MONA', 0.05 * 1e8, DEFAULT_OPTIONS)
                             .then(function(unsignedHex) {
                                 console.log('unsignedHex; ', unsignedHex);
 
@@ -154,14 +157,14 @@ bitcoindRPC.call('getinfo')
                     })
                 ;
 
-            // send some XCP to P2PKH, just for testing the code
-            case 'send-xcp-to-p2pkh':
+            // send some XMP to P2PKH, just for testing the code
+            case 'send-xmp-to-p2pkh':
                 return balances([address1, address2, p2shAddress])
                     .then(function(balances) {
                         console.log(balances);
                     })
                     .then(function() {
-                        return backend.create_send(address1, address2, 'XCP', 1 * 1e8, DEFAULT_OPTIONS)
+                        return backend.create_send(address1, address2, 'XMP', 1 * 1e8, DEFAULT_OPTIONS)
                             .then(function(unsignedHex) {
                                 console.log('unsignedHex; ', unsignedHex);
 
@@ -185,14 +188,14 @@ bitcoindRPC.call('getinfo')
                     })
                 ;
 
-            // send some XCP to P2SH
-            case 'send-xcp-to-p2sh':
+            // send some XMP to P2SH
+            case 'send-xmp-to-p2sh':
                 return balances([address1, address2, p2shAddress])
                     .then(function(balances) {
                         console.log(balances);
                     })
                     .then(function() {
-                        return backend.create_send(address1, p2shAddress, 'XCP', 1 * 1e8, DEFAULT_OPTIONS)
+                        return backend.create_send(address1, p2shAddress, 'XMP', 1 * 1e8, DEFAULT_OPTIONS)
                             .then(function(unsignedHex) {
                                 console.log('unsignedHex; ', unsignedHex);
 
@@ -216,8 +219,8 @@ bitcoindRPC.call('getinfo')
                     })
                 ;
 
-            // send some XCP from P2SH to address2
-            case 'send-xcp-from-p2sh':
+            // send some XMP from P2SH to address2
+            case 'send-xmp-from-p2sh':
                 var options = {};
                 for (var k in DEFAULT_OPTIONS) {
                     options[k] = DEFAULT_OPTIONS[k];
@@ -228,7 +231,7 @@ bitcoindRPC.call('getinfo')
                         console.log(balances);
                     })
                     .then(function() {
-                        return backend.create_send(p2shAddress, address2, 'XCP', 1 * 1e8, DEFAULT_OPTIONS)
+                        return backend.create_send(p2shAddress, address2, 'XMP', 1 * 1e8, DEFAULT_OPTIONS)
                             .then(function(unsignedHex) {
                                 console.log('unsignedHex; ', unsignedHex);
 
@@ -276,7 +279,7 @@ bitcoindRPC.call('getinfo')
 
             default:
                 console.log('commands are; ' +
-                    'send-BTC-to-p2sh, send-XCP-to-p2pkh, send-XCP-to-p2sh, send-XCP-from-p2sh, poll-for-block'
+                    'send-MONA-to-p2sh, send-XMP-to-p2pkh, send-XMP-to-p2sh, send-XMP-from-p2sh, poll-for-block'
                 );
         }
     })
